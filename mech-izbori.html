@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>МЕЧ — Изборни резултати по области 2024 / 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f4f2ee;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --accent: #1a3a6b;
+    --green: #0F6E56;
+    --red: #A32D2D;
+    --font-head: 'Montserrat', sans-serif;
+    --font-body: 'Source Sans 3', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    background: var(--accent);
+    color: white;
+    padding: 28px 40px 24px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-family: var(--font-head);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1.3;
+  }
+
+  header p {
+    font-size: 13px;
+    opacity: 0.7;
+    margin-top: 4px;
+  }
+
+  header .totals {
+    display: flex;
+    gap: 24px;
+    flex-shrink: 0;
+  }
+
+  header .total-item {
+    text-align: right;
+  }
+
+  header .total-item .num {
+    font-family: var(--font-head);
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  header .total-item .lbl {
+    font-size: 11px;
+    opacity: 0.65;
+    margin-top: 2px;
+  }
+
+  .main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 24px 48px;
+  }
+
+  /* Buttons */
+  .btn-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .btn-group button {
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-group button:hover { background: #f0ede8; color: var(--text); }
+
+  .btn-group button.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  /* Metric cards */
+  .mc-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 700px) { .mc-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .mc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .mc-l { font-size: 11px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .mc-v { font-family: var(--font-head); font-size: 20px; font-weight: 700; color: var(--text); }
+  .mc-s { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  /* Map */
+  .map-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  #map { display: block; width: 100%; }
+
+  svg path { cursor: pointer; transition: opacity 0.12s; }
+  svg path:hover { opacity: 0.72; }
+
+  /* Tooltip */
+  .tooltip {
+    position: absolute;
+    background: white;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s;
+    z-index: 10;
+    min-width: 230px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+
+  .tooltip .t-name { font-family: var(--font-head); font-weight: 700; font-size: 14px; margin-bottom: 8px; color: var(--text); }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 16px; margin: 3px 0; }
+  .tooltip .t-label { color: var(--muted); }
+  .tooltip .t-val { font-weight: 600; }
+  .tooltip .t-divider { border: none; border-top: 1px solid #eee; margin: 7px 0; }
+  .tooltip .t-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    padding: 0 4px;
+  }
+
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+    border: 0.5px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* Extra boxes */
+  .extra-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  @media (max-width: 800px) { .extra-grid { grid-template-columns: 1fr; } }
+
+  .extra-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+
+  .extra-box .ex-title {
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .ex-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0ede8;
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+
+  .ex-row:last-child { border-bottom: none; }
+  .ex-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; border: 0.5px solid rgba(0,0,0,0.1); }
+  .ex-name { font-weight: 600; min-width: 90px; }
+  .ex-data { color: var(--muted); font-size: 11px; }
+  .ex-diff { font-weight: 700; font-size: 12px; margin-left: auto; }
+
+  /* Table */
+  .table-section h2 {
+    font-family: var(--font-head);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+  thead { background: #f8f6f2; }
+
+  th {
+    padding: 10px 12px;
+    text-align: left;
+    font-family: var(--font-head);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  th:not(:first-child) { text-align: right; }
+  th.act { color: var(--accent); }
+  th:hover { color: var(--text); }
+
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #f0ede8;
+    color: var(--text);
+  }
+
+  td:not(:first-child) { text-align: right; }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #faf9f7; }
+
+  .td-sub { padding-left: 24px; color: var(--muted); }
+  .td-bold { font-weight: 700; }
+  .tr-sep td { border-top: 2px solid var(--border); }
+
+  footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 20px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>МЕЧ — Изборни резултати по области</h1>
+    <p>Сравнение: Октомври 2024 срещу Април 2026</p>
+  </div>
+  <div class="totals">
+    <div class="total-item">
+      <div class="num">104 506</div>
+      <div class="lbl">Общо гласове апр. 2026</div>
+    </div>
+    <div class="total-item">
+      <div class="num">111 965</div>
+      <div class="lbl">Общо гласове окт. 2024</div>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="btn-group" id="btnGroup">
+    <button onclick="setMode('apr26')" class="active" id="btn-apr26">Април 2026</button>
+    <button onclick="setMode('oct24')" id="btn-oct24">Октомври 2024</button>
+    <button onclick="setMode('diff')" id="btn-diff">Промяна (гласове)</button>
+    <button onclick="setMode('pct')" id="btn-pct">Промяна (%)</button>
+  </div>
+
+  <div class="mc-grid" id="mcGrid"></div>
+
+  <div class="map-wrap">
+    <div id="tip" class="tooltip"></div>
+    <svg id="map" viewBox="0 0 900 500"></svg>
+  </div>
+
+  <div class="legend" id="lgd"></div>
+
+  <div class="extra-grid">
+    <div class="extra-box">
+      <div class="ex-title">Пловдив — Град и Област</div>
+      <div id="plovdivRows"></div>
+    </div>
+    <div class="extra-box">
+      <div class="ex-title">София — по МИР-ове</div>
+      <div id="sofiaRows"></div>
+    </div>
+    <div class="extra-box">
+      <div class="ex-title">Чужбина</div>
+      <div id="abroadRow"></div>
+    </div>
+  </div>
+
+  <div class="table-section">
+    <h2>Детайлни резултати по области</h2>
+    <div class="table-wrap">
+      <table id="tbl"></table>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Данни: ЦИК — Избори за Народно събрание октомври 2024 и април 2026 &nbsp;|&nbsp; Картографски данни: yurukov/Bulgaria-geocoding
+</footer>
+
+<script>
+// oct24 = по-голямото, apr26 = по-малкото
+const MAP_REGIONS = {
+  BLG:{name:'Благоевград',   apr26:{v:3766,p:2.503}, oct24:{v:4319,p:3.489}},
+  BGS:{name:'Бургас',        apr26:{v:5408,p:3.101}, oct24:{v:5751,p:4.386}},
+  VAR:{name:'Варна',         apr26:{v:5869,p:2.940}, oct24:{v:6203,p:4.051}},
+  VTR:{name:'Велико Търново',apr26:{v:2727,p:2.838}, oct24:{v:3115,p:4.590}},
+  VID:{name:'Видин',         apr26:{v:1279,p:3.634}, oct24:{v:1085,p:3.718}},
+  VRC:{name:'Враца',         apr26:{v:3165,p:4.206}, oct24:{v:3212,p:5.561}},
+  GAB:{name:'Габрово',       apr26:{v:1641,p:3.524}, oct24:{v:1591,p:4.855}},
+  DOB:{name:'Добрич',        apr26:{v:2149,p:3.226}, oct24:{v:2465,p:4.689}},
+  KRZ:{name:'Кърджали',      apr26:{v:654, p:0.844}, oct24:{v:616, p:0.824}},
+  KNL:{name:'Кюстендил',     apr26:{v:1923,p:3.605}, oct24:{v:2096,p:5.367}},
+  LOV:{name:'Ловеч',         apr26:{v:2229,p:4.192}, oct24:{v:2177,p:5.418}},
+  MON:{name:'Монтана',       apr26:{v:2558,p:4.465}, oct24:{v:2357,p:5.201}},
+  PAZ:{name:'Пазарджик',     apr26:{v:3776,p:3.672}, oct24:{v:4410,p:5.945}},
+  PER:{name:'Перник',        apr26:{v:2208,p:4.067}, oct24:{v:1968,p:5.416}},
+  PVN:{name:'Плевен',        apr26:{v:4288,p:4.198}, oct24:{v:3660,p:4.762}},
+  PDV:{name:'Пловдив',       apr26:{v:10207,p:3.565},oct24:{v:11399,p:5.928}},
+  RAZ:{name:'Разград',       apr26:{v:707, p:1.512}, oct24:{v:777, p:1.851}},
+  RSE:{name:'Русе',          apr26:{v:2968,p:3.439}, oct24:{v:3876,p:6.146}},
+  SLS:{name:'Силистра',      apr26:{v:831, p:1.783}, oct24:{v:1217,p:3.022}},
+  SLV:{name:'Сливен',        apr26:{v:2106,p:3.282}, oct24:{v:2779,p:6.044}},
+  SML:{name:'Смолян',        apr26:{v:1024,p:2.055}, oct24:{v:1050,p:2.684}},
+  SOF:{name:'София',         apr26:{v:20302,p:3.030},oct24:{v:20246,p:4.556}},
+  SFO:{name:'София Област',  apr26:{v:3928,p:3.806}, oct24:{v:3615,p:4.902}},
+  SZR:{name:'Стара Загора',  apr26:{v:5255,p:3.808}, oct24:{v:6509,p:6.216}},
+  TGV:{name:'Търговище',     apr26:{v:1116,p:2.414}, oct24:{v:1268,p:3.132}},
+  HKV:{name:'Хасково',       apr26:{v:2270,p:2.124}, oct24:{v:3354,p:3.829}},
+  SHU:{name:'Шумен',         apr26:{v:1730,p:2.532}, oct24:{v:2073,p:3.826}},
+  JAM:{name:'Ямбол',         apr26:{v:1590,p:3.317}, oct24:{v:1850,p:5.649}},
+};
+
+const PLOVDIV_DETAIL = [
+  {name:'Пловдив Град',  apr26:{v:5448,p:3.565}, oct24:{v:6045,p:5.650}},
+  {name:'Пловдив Област',apr26:{v:4759,p:3.565}, oct24:{v:5354,p:6.206}},
+];
+const SOFIA_MIRS = [
+  {name:'23 МИР', apr26:{v:7041,p:2.719}, oct24:{v:7697,p:4.072}},
+  {name:'24 МИР', apr26:{v:5771,p:3.250}, oct24:{v:5782,p:4.536}},
+  {name:'25 МИР', apr26:{v:7490,p:4.123}, oct24:{v:6767,p:5.460}},
+];
+const ABROAD = {name:'Чужбина', apr26:{v:6832,p:3.660}, oct24:{v:6927,p:4.813}};
+
+const NUTS_MAP = {
+  BLG:'BLG',BGS:'BGS',VAR:'VAR',VTR:'VTR',VID:'VID',VRC:'VRC',
+  GAB:'GAB',DOB:'DOB',KRZ:'KRZ',KNL:'KNL',LOV:'LOV',MON:'MON',
+  PAZ:'PAZ',PER:'PER',PVN:'PVN',RAZ:'RAZ',RSE:'RSE',SLS:'SLS',
+  SLV:'SLV',SML:'SML',SFO:'SFO',SZR:'SZR',TGV:'TGV',HKV:'HKV',
+  SHU:'SHU',JAM:'JAM',PDV:'PDV',SOF:'SOF',
+};
+
+let mode='apr26', sortCol='diffv', sortDir=-1;
+
+function dV(r){ return r.apr26.v - r.oct24.v; }
+function dPct(r){ return +((r.apr26.v - r.oct24.v)/r.oct24.v*100).toFixed(2); }
+
+function getValue(k){
+  const r=MAP_REGIONS[k];
+  if(mode==='apr26') return r.apr26.p;
+  if(mode==='oct24') return r.oct24.p;
+  if(mode==='diff')  return dV(r);
+  return dPct(r);
+}
+
+const CS={
+  apr26:v=>d3.scaleQuantize([0.5,6.5],['#EEF6FB','#B5D4F4','#85B7EB','#378ADD','#185FA5','#0C447C'])(v),
+  oct24:v=>d3.scaleQuantize([0.5,6.5],['#EEF6FB','#B5D4F4','#85B7EB','#378ADD','#185FA5','#0C447C'])(v),
+  diff: v=>d3.scaleDiverging([-500,0,1000],d3.interpolateRgbBasis(['#A32D2D','#F7C1C1','#f4f2ee','#9FE1CB','#0F6E56']))(v),
+  pct:  v=>d3.scaleDiverging([-30,0,60],   d3.interpolateRgbBasis(['#A32D2D','#F7C1C1','#f4f2ee','#9FE1CB','#0F6E56']))(v),
+};
+
+function getColor(k){ return CS[mode](getValue(k)); }
+
+function renderMetrics(){
+  const allR=[...Object.values(MAP_REGIONS),...PLOVDIV_DETAIL,...SOFIA_MIRS,ABROAD];
+  const best=allR.reduce((a,b)=>dPct(b)>dPct(a)?b:a);
+  const worst=allR.reduce((a,b)=>dPct(b)<dPct(a)?b:a);
+  document.getElementById('mcGrid').innerHTML=`
+    <div class="mc"><div class="mc-l">Общо гласове апр. 2026</div><div class="mc-v">104 506</div><div class="mc-s">вкл. чужбина</div></div>
+    <div class="mc"><div class="mc-l">Общо гласове окт. 2024</div><div class="mc-v">111 965</div><div class="mc-s">вкл. чужбина</div></div>
+    <div class="mc"><div class="mc-l">Най-голям ръст (апр→окт)</div><div class="mc-v" style="font-size:15px;">${best.name}</div><div class="mc-s" style="color:var(--green);font-weight:600;">${dPct(best)>=0?'+':''}${dPct(best).toFixed(1)}% / ${dV(best)>=0?'+':''}${dV(best).toLocaleString()} гл.</div></div>
+    <div class="mc"><div class="mc-l">Най-голям спад (апр→окт)</div><div class="mc-v" style="font-size:15px;">${worst.name}</div><div class="mc-s" style="color:var(--red);font-weight:600;">${dPct(worst).toFixed(1)}% / ${dV(worst).toLocaleString()} гл.</div></div>
+  `;
+}
+
+function extraRow(r){
+  const dv=dV(r), dp=dPct(r);
+  const dc=dv>=0?'var(--green)':'var(--red)';
+  const cv=mode==='apr26'?r.apr26.p:mode==='oct24'?r.oct24.p:mode==='diff'?dv:dp;
+  const c=CS[mode](cv);
+  return `<div class="ex-row">
+    <span class="ex-swatch" style="background:${c};"></span>
+    <span class="ex-name">${r.name}</span>
+    <span class="ex-data">апр: ${r.apr26.v.toLocaleString()} | окт: ${r.oct24.v.toLocaleString()}</span>
+    <span class="ex-diff" style="color:${dc};">${dv>=0?'+':''}${dv.toLocaleString()} гл. (${dp>=0?'+':''}${dp.toFixed(1)}%)</span>
+  </div>`;
+}
+
+function renderExtras(){
+  document.getElementById('plovdivRows').innerHTML=PLOVDIV_DETAIL.map(extraRow).join('');
+  document.getElementById('sofiaRows').innerHTML=SOFIA_MIRS.map(extraRow).join('');
+  document.getElementById('abroadRow').innerHTML=extraRow(ABROAD);
+}
+
+function renderLegend(){
+  const isDiff=mode==='diff'||mode==='pct';
+  let html='<span style="margin-right:6px;font-weight:600;">'+(mode==='apr26'?'% гласове (апр. 2026)':mode==='oct24'?'% гласове (окт. 2024)':mode==='diff'?'Разлика в гласове':'Промяна % спрямо окт. 2024')+':</span>';
+  if(isDiff){
+    const cs=['#A32D2D','#F7C1C1','#f4f2ee','#9FE1CB','#0F6E56'];
+    const lb=mode==='diff'?['−500','−250','0','+500','+1000']:['−30%','−15%','0','+30%','+60%'];
+    cs.forEach((c,i)=>{ html+=`<span><span class="legend-swatch" style="background:${c};"></span>${lb[i]}</span>`; });
+  } else {
+    ['#EEF6FB','#B5D4F4','#85B7EB','#378ADD','#185FA5','#0C447C'].forEach((c,i)=>{
+      html+=`<span><span class="legend-swatch" style="background:${c};"></span>${['0.5','1.5','2.5','3.5','4.5','6.5'][i]}%</span>`;
+    });
+  }
+  document.getElementById('lgd').innerHTML=html;
+}
+
+function renderTable(){
+  const keys=Object.keys(MAP_REGIONS).filter(k=>k!=='PDV'&&k!=='SOF');
+  const sorted=[...keys].sort((a,b)=>{
+    const ra=MAP_REGIONS[a],rb=MAP_REGIONS[b];
+    if(sortCol==='name') return sortDir*(ra.name<rb.name?-1:1);
+    if(sortCol==='apr26') return sortDir*(ra.apr26.v-rb.apr26.v);
+    if(sortCol==='oct24') return sortDir*(ra.oct24.v-rb.oct24.v);
+    if(sortCol==='diffv') return sortDir*(dV(ra)-dV(rb));
+    return sortDir*(dPct(ra)-dPct(rb));
+  });
+
+  const th=(col,lbl)=>`<th class="${sortCol===col?'act':''}" onclick="sortBy('${col}')">${lbl}${sortCol===col?(sortDir>0?' ↑':' ↓'):''}</th>`;
+  let html=`<thead><tr>${th('name','Област')}${th('apr26','Апр. 2026 (гл.)')}${th('oct24','Окт. 2024 (гл.)')}${th('diffv','± гласове')}${th('diffpct','± %')}</tr></thead><tbody>`;
+
+  sorted.forEach(k=>{
+    const r=MAP_REGIONS[k]; const dv=dV(r),dp=dPct(r);
+    const dc=dv>0?'color:var(--green)':dv<0?'color:var(--red)':'';
+    html+=`<tr><td>${r.name}</td>
+      <td>${r.apr26.v.toLocaleString()}</td>
+      <td>${r.oct24.v.toLocaleString()}</td>
+      <td style="font-weight:600;${dc}">${dv>=0?'+':''}${dv.toLocaleString()}</td>
+      <td style="font-weight:600;${dc}">${dp>=0?'+':''}${dp.toFixed(1)}%</td></tr>`;
+  });
+
+  // Пловдив детайл
+  html+=`<tr class="tr-sep"><td class="td-bold">Пловдив (общо)</td><td>${(10207).toLocaleString()}</td><td>${(11399).toLocaleString()}</td><td style="font-weight:600;color:var(--red);">-1 192</td><td style="font-weight:600;color:var(--red);">-10.5%</td></tr>`;
+  PLOVDIV_DETAIL.forEach(r=>{
+    const dv=dV(r),dp=dPct(r);
+    const dc=dv>0?'color:var(--green)':dv<0?'color:var(--red)':'';
+    html+=`<tr><td class="td-sub">${r.name}</td><td>${r.apr26.v.toLocaleString()}</td><td>${r.oct24.v.toLocaleString()}</td><td style="font-weight:600;${dc}">${dv>=0?'+':''}${dv.toLocaleString()}</td><td style="font-weight:600;${dc}">${dp>=0?'+':''}${dp.toFixed(1)}%</td></tr>`;
+  });
+
+  // София детайл
+  const sofApr=20302, sofOct=20246, sofDv=sofApr-sofOct, sofDp=((sofDv/sofOct)*100).toFixed(1);
+  const sofDc=sofDv>0?'color:var(--green)':'color:var(--red)';
+  html+=`<tr class="tr-sep"><td class="td-bold">София (общо)</td><td>${sofApr.toLocaleString()}</td><td>${sofOct.toLocaleString()}</td><td style="font-weight:600;${sofDc}">${sofDv>=0?'+':''}${sofDv.toLocaleString()}</td><td style="font-weight:600;${sofDc}">${sofDp>=0?'+':''}${sofDp}%</td></tr>`;
+  SOFIA_MIRS.forEach(r=>{
+    const dv=dV(r),dp=dPct(r);
+    const dc=dv>0?'color:var(--green)':dv<0?'color:var(--red)':'';
+    html+=`<tr><td class="td-sub">София ${r.name}</td><td>${r.apr26.v.toLocaleString()}</td><td>${r.oct24.v.toLocaleString()}</td><td style="font-weight:600;${dc}">${dv>=0?'+':''}${dv.toLocaleString()}</td><td style="font-weight:600;${dc}">${dp>=0?'+':''}${dp.toFixed(1)}%</td></tr>`;
+  });
+
+  // Чужбина
+  const adv=dV(ABROAD),adp=dPct(ABROAD);
+  const adc=adv>0?'color:var(--green)':'color:var(--red)';
+  html+=`<tr class="tr-sep"><td class="td-bold">Чужбина</td><td>${ABROAD.apr26.v.toLocaleString()}</td><td>${ABROAD.oct24.v.toLocaleString()}</td><td style="font-weight:600;${adc}">${adv>=0?'+':''}${adv.toLocaleString()}</td><td style="font-weight:600;${adc}">${adp>=0?'+':''}${adp.toFixed(1)}%</td></tr>`;
+
+  html+='</tbody>';
+  document.getElementById('tbl').innerHTML=html;
+}
+
+function sortBy(col){
+  if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=-1;}
+  renderTable();
+}
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('#btnGroup button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+m).classList.add('active');
+  d3.select('#map').selectAll('path').attr('fill',d=>{
+    const k=NUTS_MAP[d.properties.nuts3];
+    return k?getColor(k):'#dedad4';
+  });
+  renderLegend();
+  renderExtras();
+}
+
+const tip=document.getElementById('tip');
+let tipKey=null;
+
+function showTip(evt,k){
+  tipKey=k;
+  const r=MAP_REGIONS[k];
+  const dv=dV(r),dp=dPct(r);
+  const dc=dv>=0?'var(--green)':'var(--red)';
+  const isCombined=k==='PDV'||k==='SOF';
+  const note=k==='PDV'?'Виж Пловдив Град / Пловдив Област по-долу':k==='SOF'?'Виж 23, 24, 25 МИР по-долу':'';
+  tip.innerHTML=`
+    <div class="t-name">${r.name}${isCombined?' (общо)':''}</div>
+    <div class="t-row"><span class="t-label">Апр. 2026</span><span class="t-val">${r.apr26.v.toLocaleString()} гл.${r.apr26.p?' ('+r.apr26.p+'%)':''}</span></div>
+    <div class="t-row"><span class="t-label">Окт. 2024</span><span class="t-val">${r.oct24.v.toLocaleString()} гл.${r.oct24.p?' ('+r.oct24.p+'%)':''}</span></div>
+    <hr class="t-divider">
+    <div class="t-row"><span class="t-label">± гласове</span><span class="t-val" style="color:${dc};">${dv>=0?'+':''}${dv.toLocaleString()}</span></div>
+    <div class="t-row"><span class="t-label">± % спрямо окт. 2024</span><span class="t-val" style="color:${dc};">${dp>=0?'+':''}${dp.toFixed(1)}%</span></div>
+    ${isCombined?`<div class="t-note">${note}</div>`:''}`;
+  tip.style.opacity='1';
+  moveTip(evt);
+}
+
+function moveTip(evt){
+  const r=document.getElementById('map').getBoundingClientRect();
+  let x=evt.clientX-r.left+16, y=evt.clientY-r.top-10;
+  if(x+240>r.width) x=evt.clientX-r.left-250;
+  tip.style.left=x+'px';
+  tip.style.top=y+'px';
+}
+function hideTip(){tip.style.opacity='0';tipKey=null;}
+
+d3.json('https://cdn.jsdelivr.net/gh/yurukov/Bulgaria-geocoding@master/provinces.geojson').then(geo=>{
+  const svg=d3.select('#map');
+  const proj=d3.geoMercator().fitSize([900,500],geo);
+  const path=d3.geoPath(proj);
+  svg.selectAll('path').data(geo.features).join('path')
+    .attr('d',path)
+    .attr('stroke','white')
+    .attr('stroke-width','1')
+    .attr('fill',d=>{
+      const k=NUTS_MAP[d.properties.nuts3];
+      return k?getColor(k):'#dedad4';
+    })
+    .on('mousemove',function(evt,d){
+      const k=NUTS_MAP[d.properties.nuts3];
+      if(k) showTip(evt,k);
+    })
+    .on('mouseleave',hideTip);
+  document.getElementById('map').addEventListener('mousemove',evt=>{if(tipKey)moveTip(evt);});
+  renderMetrics();
+  renderLegend();
+  renderExtras();
+  renderTable();
+});
+</script>
+</body>
+</html>
